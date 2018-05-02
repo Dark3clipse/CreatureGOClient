@@ -1,4 +1,4 @@
-package com.sophiahadash.pokemongo;
+package com.sophiahadash.creaturego;
 
 import android.app.Activity;
 

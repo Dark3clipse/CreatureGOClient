@@ -1,9 +1,11 @@
-package com.sophiahadash.pokemongo;
+package com.sophiahadash.creaturego;
 
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
+import android.graphics.Point;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
@@ -13,6 +15,8 @@ import android.widget.FrameLayout;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.math.Vector2;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationServices;
@@ -29,11 +33,16 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.sophiahadash.creaturego.CameraHandler;
 import com.sophiahadash.creaturego.MainMap;
 import com.sophiahadash.creaturego.RequestHandler;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 
 public class AndroidLauncher extends AndroidApplication implements RequestHandler, OnMapReadyCallback, LocationListener, ActivityCompat.OnRequestPermissionsResultCallback, GoogleMapFragment.onReady,
         GoogleMap.OnCameraMoveStartedListener, GoogleMap.OnCameraMoveListener, GoogleMap.OnCameraMoveCanceledListener, GoogleMap.OnCameraIdleListener {
@@ -59,6 +68,7 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
 
     //Store last known current location
     Location lastKnownLocation;
+    private Vector2 lastKnownScreenLocation = Vector2.Zero;
 
     @Override
 	protected void onCreate (Bundle savedInstanceState) {
@@ -160,6 +170,7 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
         });
     }
 
+    Circle targetCircle;
     @Override
     public void updateCamera(){
         if (camHandle == null){
@@ -181,8 +192,34 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
                                 .build();
 
                 map.moveCamera(CameraUpdateFactory.newCameraPosition(camPos));
+
+                storeScreenLocation();
+
+                if (targetCircle == null) {
+                    targetCircle = map.addCircle(new CircleOptions()
+                            .center(new LatLng(s.targetLatitude, s.targetLongitude))
+                            .radius(.4)
+                            .strokeWidth(.1f)
+                            .strokeColor(Color.BLACK)
+                            .fillColor(Color.BLACK));
+                }else{
+                    targetCircle.setCenter(new LatLng(s.targetLatitude, s.targetLongitude));
+                }
             }
         });
+    }
+
+    @Override
+    public Vector2 getScreenCoordsOfCharacter(){
+        if (lastKnownScreenLocation.equals(Vector2.Zero)){
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    storeScreenLocation();
+                }
+            });
+        }
+        return lastKnownScreenLocation;
     }
 
     //Called when the map is received from google and ready
@@ -194,9 +231,19 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
             if (ContextCompat.checkSelfPermission( this, android.Manifest.permission.ACCESS_FINE_LOCATION ) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions( this, new String[] {  android.Manifest.permission.ACCESS_COARSE_LOCATION  },123 );
             }
+            storeScreenLocation();
 
             //will do this manually
             map.setMyLocationEnabled(false);
+            map.setBuildingsEnabled(false);
+            map.setIndoorEnabled(false);
+
+            //Add the map styling
+            FileHandle handle = Gdx.files.internal("JSON/map_style.json");
+            String mapStyleJson = handle.readString();
+
+            MapStyleOptions mapStyle = new MapStyleOptions(mapStyleJson);
+            map.setMapStyle(mapStyle);
 
             map.setOnCameraIdleListener(this);
             map.setOnCameraMoveStartedListener(this);
@@ -209,8 +256,10 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
             map.getUiSettings().setIndoorLevelPickerEnabled(false);
             map.getUiSettings().setMapToolbarEnabled(false);
 
+
             //disable all gestures
             map.getUiSettings().setAllGesturesEnabled(false);
+
         }
 
     }
@@ -244,19 +293,27 @@ public class AndroidLauncher extends AndroidApplication implements RequestHandle
             if (circle == null) {
                 circle = map.addCircle(new CircleOptions()
                         .center(new LatLng(location.getLatitude(), location.getLongitude()))
-                        .radius(.2)
+                        .radius(.4)
                         .strokeWidth(.1f)
                         .strokeColor(Color.BLUE)
                         .fillColor(Color.BLUE));
-            }else{
+            }else {
                 circle.setCenter(new LatLng(location.getLatitude(), location.getLongitude()));
             }
 
             updateCamera();
             Gdx.app.log(getResources().getString(R.string.log_tag), "Location changed!");
+            storeScreenLocation();
         }
 
         gdxApp.setPosition((float) location.getLatitude(), (float) location.getLongitude());
+    }
+
+    private void storeScreenLocation(){
+        if (lastKnownLocation != null && map!= null) {
+            Point p = map.getProjection().toScreenLocation(new LatLng(lastKnownLocation.getLatitude(), lastKnownLocation.getLongitude()));
+            lastKnownScreenLocation = new Vector2(p.x, p.y);
+        }
     }
 
     @Override

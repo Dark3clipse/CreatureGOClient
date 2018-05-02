@@ -2,11 +2,14 @@ package com.sophiahadash.creaturego;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.input.GestureDetector;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Label.LabelStyle;
@@ -14,6 +17,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton.TextButtonStyle;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
+import com.sophiahadash.creaturego.input.CameraGestureHandler;
+import com.sophiahadash.creaturego.input.CameraInputListener;
 
 public class MainMap extends ApplicationAdapter {
     final int WIDTH = 480;
@@ -26,6 +31,8 @@ public class MainMap extends ApplicationAdapter {
 
     }
 
+    ShapeRenderer shapes;
+
     TextButtonStyle txButtonStyle;
     LabelStyle lbStyle;
     BitmapFont font;
@@ -33,18 +40,16 @@ public class MainMap extends ApplicationAdapter {
     Stage stage;
     GoogleMapActor mapActor;
 
-    TextButton btShowMap;
-    TextButton btHideMap;
-
-    Label lbPosition;
-
     private CameraHandler camHandle;
+
+    private InputMultiplexer inMul;
 
     @Override
     public void create() {
         camHandle = new CameraHandler(this);
 
         stage = new Stage(new StretchViewport(WIDTH, HEIGHT));
+        shapes = new ShapeRenderer();
 
         font = new BitmapFont();
 
@@ -57,6 +62,8 @@ public class MainMap extends ApplicationAdapter {
         lbl.setPosition(10, 10);
         stage.addActor(lbl);*/
 
+
+
         mapActor = new GoogleMapActor(requestHandler);
         mapActor.setSize(WIDTH, HEIGHT);
         mapActor.setPosition(0, 0);
@@ -64,7 +71,10 @@ public class MainMap extends ApplicationAdapter {
 
         stage.addActor(mapActor);
 
-        Gdx.input.setInputProcessor(new GestureDetector(camHandle));
+        InputMultiplexer inMul = new InputMultiplexer();
+        inMul.addProcessor(new CameraInputListener(this));
+        inMul.addProcessor(new GestureDetector(new CameraGestureHandler(this)));
+        Gdx.input.setInputProcessor(inMul);
 
         requestHandler.updateCamera();
     }
@@ -87,6 +97,13 @@ public class MainMap extends ApplicationAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
         Gdx.gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         stage.draw();
+
+        Vector2 character = new Vector2(requestHandler.getScreenCoordsOfCharacter());
+        character.y = Gdx.graphics.getHeight()-character.y;
+        shapes.setColor(Color.RED);
+        shapes.begin(ShapeRenderer.ShapeType.Filled);
+        shapes.circle(character.x, character.y, 2);
+        shapes.end();
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }

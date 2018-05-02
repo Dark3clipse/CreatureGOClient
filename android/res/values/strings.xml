@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">PokemonGO</string>
-    <string name="log_tag">pogo-android</string>
+    <string name="app_name">CreatureGO</string>
+    <string name="log_tag">go-android</string>
 </resources>
